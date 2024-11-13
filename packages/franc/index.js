@@ -29,6 +29,13 @@ const MIN_LENGTH = 10
  * not exist in a trigram dictionary. */
 const MAX_DIFFERENCE = 300
 
+/* To avoid a race between cmn and jpn detections, we need
+ * to set a threshold for the jpn count to prevail against
+ * cmn. If the count difference is below this threshold, we
+ * can consider it as a cmn detection, as it contains too
+ * few Japanese-specific characters (kana). */
+const CMN_JPN_MIN_DIFF = 0.15
+
 const own = {}.hasOwnProperty
 
 /* Construct trigram dictionaries. */
@@ -165,24 +172,49 @@ function normalize(value, distances) {
  *   Top script and its occurrence percentage.
  */
 function getTopScript(value, scripts) {
-  let topCount = -1
-  /** @type {string|undefined} */
-  let topScript
   /** @type {string} */
   let script
+
+  /** @type {Array<{ script: string, count: number }>} */
+  const scriptCounts = []
+  let jpnDetected = false
+  let cmnDetected = false
 
   for (script in scripts) {
     if (own.call(scripts, script)) {
       const count = getOccurrence(value, scripts[script])
 
-      if (count > topCount) {
-        topCount = count
-        topScript = script
+      // Only add matching scripts
+      if (count > 0) {
+        scriptCounts.push({
+          script,
+          count
+        })
+        if (script === 'jpn') {
+          jpnDetected = true
+        } else if (script === 'cmn') {
+          cmnDetected = true
+        }
       }
     }
   }
 
-  return [topScript, topCount]
+  scriptCounts.sort((a, b) => b.count - a.count)
+  if (
+    jpnDetected &&
+    cmnDetected &&
+    scriptCounts[0].script === 'jpn' &&
+    scriptCounts[1].script === 'cmn' &&
+    scriptCounts[0].count - scriptCounts[1].count < CMN_JPN_MIN_DIFF
+  ) {
+    return ['cmn', scriptCounts[1].count]
+  }
+
+  if (scriptCounts.length === 0) {
+    return [undefined, -1]
+  }
+
+  return [scriptCounts[0].script, scriptCounts[0].count]
 }
 
 /**
