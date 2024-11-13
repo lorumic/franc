@@ -85,6 +85,22 @@ test('franc()', () => {
     'should detect Japanese even when Han ratio > 0.5 (udhr_jpn art 16) (3)'
   )
 
+  assert.equal(
+    franc(
+      '特別推薦的必訪店家「ヤマシロヤ」，雖然不在阿美橫町上，但就位於JR上野站廣小路口對面'
+    ),
+    'cmn',
+    'should detect Mandarin only when there are too few Japanese characters (1)'
+  )
+
+  assert.equal(
+    franc(
+      '特別推薦的必訪店家「ヤマシロヤ」のこと，雖然不在阿美橫町上，但就位於JR上野站廣小路口對面にあります。'
+    ),
+    'jpn',
+    'should detect Mandarin only when there are too few Japanese characters (2)'
+  )
+
   assert.notEqual(
     franc(fixtureB, {ignore: [franc(fixtureB)]}),
     franc(fixtureB),
